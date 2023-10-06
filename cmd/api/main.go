@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jay-bhogayata/greenlight/internal/data"
+	"github.com/jay-bhogayata/greenlight/internal/jsonlog"
 	_ "github.com/lib/pq"
 )
 
@@ -29,7 +30,7 @@ type config struct {
 
 type application struct {
 	config config
-	logger *log.Logger
+	logger *jsonlog.Logger
 	models data.Models
 }
 
@@ -46,11 +47,11 @@ func main() {
 
 	flag.Parse()
 
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 
 	db, err := openDB(cfg)
 	if err != nil {
-		log.Fatal(err)
+		logger.PrintFatal(err, nil)
 	}
 	db.SetMaxOpenConns(cfg.db.maxOpenConns)
 	db.SetMaxIdleConns(cfg.db.maxIdleConns)
@@ -69,7 +70,7 @@ func main() {
 		}
 	}(db)
 
-	logger.Println("database connection pool is established")
+	logger.PrintInfo("database connection pool is established", nil)
 
 	app := application{
 		config: cfg,
@@ -80,15 +81,19 @@ func main() {
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
 		Handler:      app.routes(),
+		ErrorLog:     log.New(logger, "", 0),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	logger.Printf("%s server starting on port %d", cfg.env, cfg.port)
+	logger.PrintInfo("starting server", map[string]string{
+		"addr": srv.Addr,
+		"env":  cfg.env,
+	})
 
 	err = srv.ListenAndServe()
-	logger.Fatal(err)
+	logger.PrintFatal(err, nil)
 
 }
 
