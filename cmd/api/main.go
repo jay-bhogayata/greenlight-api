@@ -6,10 +6,12 @@ import (
 	"flag"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/jay-bhogayata/greenlight/internal/data"
 	"github.com/jay-bhogayata/greenlight/internal/jsonlog"
+	"github.com/jay-bhogayata/greenlight/internal/mailer"
 	_ "github.com/lib/pq"
 )
 
@@ -29,12 +31,21 @@ type config struct {
 		brust   int
 		enabled bool
 	}
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 type application struct {
 	config config
 	logger *jsonlog.Logger
 	models data.Models
+	mailer mailer.Mailer
+	wg     sync.WaitGroup
 }
 
 func main() {
@@ -50,7 +61,11 @@ func main() {
 	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate Limiter request per second")
 	flag.IntVar(&cfg.limiter.brust, "limiter-burst", 4, "Rate limiter maximum brust")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enable", true, "Enable rate limiter")
-
+	flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", 2525, "SMTP port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", "5e415066d71603", "SMTP username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", "4f9684233f1071", "SMTP password")
+	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "Greenlight <no-reply@greenlight.jaybhogayata.me>", "SMTP sender")
 	flag.Parse()
 
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
@@ -82,6 +97,7 @@ func main() {
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
+		mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender),
 	}
 
 	err = app.serve()

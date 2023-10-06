@@ -30,14 +30,20 @@ func (app *application) serve() error {
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		s := <-quit
 
-		app.logger.PrintInfo("shutting down server", map[string]string{
+		app.logger.PrintInfo("completing background tasks", map[string]string{
 			"signal": s.String(),
 		})
 
 		ctx, cancle := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancle()
 
-		shutdownError <- srv.Shutdown(ctx)
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			shutdownError <- err
+		}
+
+		app.wg.Wait()
+		shutdownError <- nil
 	}()
 
 	app.logger.PrintInfo("starting server", map[string]string{
