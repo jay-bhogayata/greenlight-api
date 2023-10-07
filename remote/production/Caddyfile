@@ -1,0 +1,7 @@
+{
+	email jaybhogayata53@gmail.com
+}
+greenlight.jaybhogayata.me {
+	respond /debug/* "Not Permitted" 403
+	reverse_proxy localhost:4000
+}
