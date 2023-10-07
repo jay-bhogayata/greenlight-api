@@ -20,7 +20,7 @@ confirm:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:
-	go run ./cmd/api -db-dsn=${GREENLIGHT_DB_DSN};
+	go run ./cmd/api -db-dsn=${GREENLIGHT_DB_DSN} ;
 
 ## db/psql: connect to the database using psql
 .PHONY: db/psql
@@ -47,9 +47,6 @@ db/migration/up: confirm
 ## audit: tidy dependencies and format code , vet and test all code
 .PHONY: audit
 audit:
-	@echo "tidy and verify module dependencies"
-	go mod tidy ;
-	go mod verify ;
 	@echo	"formatting code"
 	go fmt ./... ;
 	@echo "vetting code"
@@ -57,3 +54,27 @@ audit:
 	staticcheck ./... ;
 	@echo "running tests"
 	go test -race -vet=off ./... ;
+
+## vendor: tidy and vendor dependencies
+.PHONY: vendor
+vendor:
+	@echo "tidying and vendoring dependencies"
+	go mod tidy ;
+	go mod verify ;
+	@echo "vendoring dependencies"
+	go mod vendor ;
+
+# ==================================================================================== #
+# BUILD
+# ==================================================================================== #
+
+current_time = $(shell date --iso-8601=seconds)
+git_description = $(shell git describe --always --dirty)
+linker_flags = '-s -X main.buildTime=${current_time}'
+
+## build/api: build the cmd/api application
+.PHONY: build/api
+build/api:
+	@echo 'Building cmd/api...'
+	go build -ldflags=${linker_flags} -o=./bin/api ./cmd/api ;
+	GOOS=linux GOARCH=amd64 go build -ldflags=${linker_flags} -o=./bin/linux_amd64/api ./cmd/api ;
